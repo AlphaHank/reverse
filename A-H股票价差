@@ -1,0 +1,125 @@
+#!/usr/bin/env python2
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Feb  2 14:59:57 2019
+
+@author: wb874
+"""
+
+import numpy as np
+from scipy import stats
+import matplotlib.pyplot as plt
+import pandas as pd
+import tushare as ts
+import statsmodels.api as sm
+import ffn
+import datetime
+import time
+import csv
+import os
+'''
+hs=pd.read_csv('/Users/wb874/Downloads/作业4/4factors.csv')   #读取数据
+
+
+data=pd.DataFrame()           
+for i in range(0,66):  
+    df1=hs.iloc[i,1:46]
+    newdf1=pd.DataFrame(df1,columns=['code_r','r'],index=[i]*45)
+    newdf1['code_r']=hs.iloc[i,1:46].index
+    newdf1['r']=hs.iloc[i,1:46].values
+    newdf1['newindex']=[i+1]*45
+    
+    df2=hs.iloc[i,49:94]
+    newdf2=pd.DataFrame(df2,columns=['u','code_r'],index=[i]*45)
+    newdf2['u']=hs.iloc[i,49:94].values
+    newdf2['code_r']=hs.iloc[i,1:46].index
+    newdf2['rf']=[hs.loc[i,'rf']]*45
+    newdf2['rm']=[hs.loc[i,'rm']]*45
+    
+    df=pd.merge(newdf1,newdf2,how='inner',on=['code_r'])
+    df=df.set_index('newindex')
+    data=data.append(df)
+    
+data['date']=list(data.index)
+data=data.reset_index()
+data=data.drop('newindex',axis=1)
+
+#以上把数据转换为示例的形式#----------------------------#----------------------------
+
+data_u=pd.DataFrame()
+
+for i in range(1,67):
+    data_date=data[data['date']==i]
+    data_date=data_date.dropna(subset=['u'])
+    data_date['u_class']=pd.qcut(data_date['u'],q=5,labels=False)
+    data_u=data_u.append(data_date)    #按照u的大小，从小到大分成5组
+    
+data_u['rif']=data_u['r']-data_u['rf']
+data_u['rmf']=data_u['rm']-data_u['rf']
+data_u_rimf=data_u.groupby(['date','u_class'])['rif','rmf'].mean()
+data_u_rimf=data_u_rimf.reset_index()
+print(data_u_rimf)   #data_u_rimf是分组大rif & rmf
+#----------------------------以上为对size和bp的分类过程,有了分类和标签，进行rif,rmf处理#----------------------------
+
+c=hs.groupby('date')['smb'].apply(lambda x:x*2/2)
+c=pd.DataFrame(c).reset_index()
+c['date']=range(1,67)
+c=c.drop('index',axis=1)
+print(c)
+
+d=hs.groupby('date')['hml'].apply(lambda x:x*2/2)
+d=pd.DataFrame(d).reset_index()
+d['date']=range(1,67)
+d=d.drop('index',axis=1)
+print(d)
+
+
+e=data_r.groupby('date')['r'].apply(lambda x: x.iloc[0]-x.iloc[4])
+e=pd.DataFrame(e).reset_index()
+print(e)
+#----------------------------#----------------------------#----------------------------
+data_u_rimf1=pd.merge(data_u_rimf,c,how='inner',on=['date'])
+
+data_u_rimf=pd.merge(data_u_rimf1,d,how='inner',on=['date'])
+
+data_to_regress=pd.merge(data_u_rimf,e,how='inner',on=['date'])
+
+data_to_regress=data_to_regress.rename(columns={'r':'hul'})
+#----------------------------#----------------------------#----------------------------
+
+
+def find_regress(df):
+    dit={}
+    y=df.rif
+    x=df[['rmf','smb','hml','hul']]
+    result=sm.OLS(y,sm.add_constant(x)).fit()  #sm.add_constant(x)!!!!
+    dit['const_r']=result.params['const']
+    dit['rmf_r']=result.params['rmf']
+    dit['smb_r']=result.params['smb']
+    dit['hml_r']=result.params['hml']
+    dit['hul_r']=result.params['hul']
+    
+    dit['const_t']=result.tvalues['const']
+    dit['rmf_t']=result.tvalues['rmf']
+    dit['smb_t']=result.tvalues['smb']
+    dit['hml_t']=result.tvalues['hml']
+    dit['hul_t']=result.tvalues['hul']
+    return dit
+
+result_final=pd.DataFrame()
+for i in [0,1,2,3,4]:
+    s=find_regress(data_to_regress[data_to_regress['u_class']==i])
+    s=pd.DataFrame(s,index=[i])
+    result_final=result_final.append(s)
+    
+print(result_final)
+'''
+result_final.to_csv('/Users/wb874/Desktop/四因子.csv')
+
+
+      
+
+    
+    
+    
+    
