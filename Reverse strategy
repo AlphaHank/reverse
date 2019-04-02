@@ -1,0 +1,685 @@
+#!/usr/bin/env python2
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Feb 15 18:32:31 2019
+
+@author: wb874
+"""
+
+import numpy as np
+from scipy import stats
+import matplotlib.pyplot as plt
+import pandas as pd
+import tushare as ts
+import statsmodels.api as sm
+import ffn
+import datetime
+import time
+import csv
+import os
+import math
+import seaborn as sns
+import scipy.stats as stats
+ts.set_token('your token here')
+pro = ts.pro_api('f811d210641eb4b9d45a6a794e84b271fa965faf04ff11be9c66de94')
+api = ts.pro_api('f811d210641eb4b9d45a6a794e84b271fa965faf04ff11be9c66de94')
+'''
+df_ret=pd.read_csv('/Users/wb874/Desktop/2009-2017收益率.csv')
+df_value=pd.read_csv('/Users/wb874/Desktop/2009-2017单页成交额.csv')
+df_market_value=pd.read_csv('/Users/wb874/Desktop/df_market_value.csv')
+df_close=pd.read_csv('/Users/wb874/Desktop/df_close_original.csv')
+'''
+
+'''
+month_end_list=[]
+month_end_list_index=[16,36,58,79,97,119,142,163,185,201,222,245,265,280,303,324,344,\
+363,385,407,426,442,464,487,507,522,545,564,585,606,627,650,671,687,709,731,746,767,789,\
+806,828,848,870,893,913,931,953,974,994,1009,1030,1048,1070,1087,1110,1132,1151,1169,1190,\
+1212,1233,1249,1270,1291,1311,1331,1354,1375,1396,1414,1434,1457,1477,1492,1514,1535,1555,\
+1576,1599,1620,1640,1657,1678,1701,1721,1737,1760,1780,1801,1821,1842,1865,1885,1901,1923,\
+1945,1963,1981,2004,2022,2042,2064,2085,2108,2129,2146,2168,2189]
+month_end_list_index1=[]
+for i in month_end_list_index:
+    i=i-2
+    month_end_list.append(i)
+month_end_list_index=month_end_list
+  
+stocklist=df_ret.columns[1:]      #-------------------------股票列表 stocklist--------#
+df_return=pd.DataFrame(index=range(0,108),columns=stocklist)
+market_base_ret_list=[]
+datelist=df_ret.index
+
+df_value=df_value.rename(columns={df_value.columns[0]:'date'})
+df_ret=df_ret.rename(columns={df_ret.columns[0]:'date'})
+df_ret=df_ret.drop(['date'],axis=1)
+df_value=df_value.drop(['date'],axis=1)
+
+
+#---------------以下收益率除以成交量------------------#
+df_ratio=pd.DataFrame(index=range(0,2188),columns=stocklist)
+
+for i in datelist:   
+    for y in stocklist:
+        b=df_value.at[i,y]
+        if b!=None:
+           if b!=0:
+              iy_ratio=abs(df_ret.at[i,y])/b 
+           else:
+              iy_ratio=None
+        else:
+            iy_ratio=None
+        df_ratio.at[i,y]=iy_ratio
+    
+print(df_ratio.tail())
+#---------------以下求ratio20日内平均值------------------#
+
+df_illiq=pd.DataFrame(index=range(0,108),columns=stocklist)  
+for s in stocklist[0:10]:
+    df_ratio_list=df_ratio[s].values
+    df_ratio_list_first=filter(None,list(df_ratio_list[:month_end_list_index[0]+1]))
+    len_ratio=len(df_ratio_list_first)   
+    if len_ratio!=0:
+        df_ratio_mean=sum(df_ratio_list_first)/len_ratio
+    else:
+        df_ratio_mean=None
+    df_illiq.at[0,s]=df_ratio_mean
+    g=1
+    for i in month_end_list_index[1:]:  
+        df_ratio_list_follow=filter(None,df_ratio_list[i+1-20:i+1])
+        len_ratio=len(df_ratio_list_follow)
+        if len_ratio!=0:
+            df_ratio_mean=sum(df_ratio_list_follow)/len_ratio
+        else:
+            df_ratio_mean=None
+        df_illiq.at[g,s]=df_ratio_mean
+        g=g+1
+
+df_illiq=pd.read_csv('/Users/wb874/Desktop/df_illiq.csv')
+df_illiq=df_illiq.drop(df_illiq.columns[0],axis=1)
+df_illiq1=df_illiq[:-6]
+df_illiq1.dropna(axis=1,how='all',inplace=True)
+new_stocklist=df_illiq1.columns
+df_market_value_20_proportion=df_market_value_20_proportion.loc[:,new_stocklist]
+'''       
+#---------------以下去极值---------------------#
+def mad(x,n):      #定义去极值函数
+    dm=x.median()  #取一列/一行数的中位数=dm
+    dmad=((x-dm).abs()).median() #各个取值-中位数的绝对值  再取中位数
+    max_mad=dm+n*dmad          # n 为参数，调整大小
+    min_mad=dm-n*dmad
+    print(max_mad,min_mad)
+    return np.clip(x,min_mad,max_mad) #np.clip(data,min,max)--->使超出上下限的值=上下
+'''
+
+df_illiq=pd.read_csv('/Users/wb874/Desktop/df_illiq.csv')
+df_illiq=df_illiq.drop(df_illiq.columns[0],axis=1)
+df_illiq=df_illiq.loc[:,new_stocklist]
+for i in new_stocklist[0:6]:
+    df_illiq[i]=mad(df_illiq[i],5) 
+'''
+'''
+mktilliq_month_list=[]
+mktilliq_month_original=[]
+for row in range(0,107):
+    mktilliq_per_month=[]
+    for i in new_stocklist:
+        df_illiq_per=df_illiq.at[row,i]
+        if df_illiq_per!=None:
+            df_market_value_20_proportion_per=df_market_value_20_proportion.at[row,i]
+            if df_market_value_20_proportion_per!=None:
+                mktilliq_per=df_illiq_per*df_market_value_20_proportion_per
+            else:
+                mktilliq_per=None
+        else:
+            mktilliq_per=None
+        mktilliq_per_month.append(mktilliq_per) 
+    mktilliq_per_month=pd.DataFrame(mktilliq_per_month).fillna(0)
+    mktilliq_month=sum(mktilliq_per_month.loc[:,0].values)
+    mktilliq_month_list.append(mktilliq_month)  
+    mktilliq_month_original.append(mktilliq_month)
+
+mktilliq_month_list.sort()
+pd.DataFrame(mktilliq_month_original).to_csv('/Users/wb874/Desktop/df_mkt_illiqs.csv')   
+mktilliq_median=(mktilliq_month_list[53]+mktilliq_month_list[54])/2  #------------mktilliq_median
+mktilliq_q1=(mktilliq_month_list[26]+mktilliq_month_list[27-0])/2 
+mktilliq_q3=(mktilliq_month_list[89]+mktilliq_month_list[90])/2 
+mktilliq_low=[]
+mktilliq_high=[]
+mktilliq_low_ret=[]
+mktilliq_high_ret=[]
+for i in range(0,107):
+    if mktilliq_month_original[i]<mktilliq_q1:
+       mktilliq_low.append(i)
+       mktilliq_low_ret.append(retlist[i-1])
+    if mktilliq_month_original[i]>mktilliq_q3:
+       mktilliq_high.append(i)
+       mktilliq_high_ret.append(retlist[i-1])       
+    else:
+        pass
+print(mktilliq_low)
+print(mktilliq_high)
+#print(mktilliq_low_ret)
+#print(mktilliq_high_ret)  
+slow=0
+for i in mktilliq_low_ret:
+    if i<0:
+        slow=slow+1
+    else:
+        pass
+print(len(mktilliq_low_ret),slow)        
+
+#---------------以下根据收盘价计算20日收益率---------------------#
+
+df_ret_20=pd.DataFrame(index=range(0,108),columns=stocklist)
+t=time.time()
+print(t)
+for s in stocklist:   
+    df_ret_20_list=df_close[s].values  
+    end_num=month_end_list_index[0]
+    
+    close1=df_ret_20_list[end_num]
+    close2=df_ret_20_list[0]
+   
+    if close1!=None:
+        if close2!=None:
+           if close2!=0:
+               ret_20=float(close1-close2)/float(close2)
+           else:
+               ret_20=None  
+        else:
+            ret_20=None
+    else:
+        ret_20=None
+        
+    df_ret_20.at[0,s]=ret_20
+    g=1        
+    for i in month_end_list_index[1:]: 
+        close1=df_ret_20_list[i]
+        close2=df_ret_20_list[i-20]
+        if close1!=None:
+            if close2!=None:
+               if close2!=0:
+                   ret_20=float(close1-close2)/float(close2)
+               else:
+                   ret_20=None  
+            else:
+                ret_20=None
+        else:
+            ret_20=None
+        df_ret_20.at[g,s]=ret_20
+        g=g+1
+
+for i in stocklist:
+    df_ret_20[i]=mad(df_ret_20[i],5)
+#df_ret_20.to_csv('/Users/wb874/Desktop/df_ret_20.csv')  
+#---------20日收益率已经去极值完毕,df_ret_20------------#  
+print('20日收益率已经去极值完毕')
+#---------20日平均市值------------#
+df_market_value_20=pd.DataFrame(index=range(0,108),columns=stocklist) 
+df_market_value_20_original=pd.DataFrame(index=range(0,108),columns=stocklist)  
+for s in stocklist:
+    df_mrv_list=df_market_value[s].values
+    
+    df_mrv_list_first=filter(None,list(df_mrv_list[:month_end_list_index[0]]))
+    len_mrv=len(df_mrv_list_first)   
+    if len_mrv!=0:
+        df_mrv_mean=sum(df_mrv_list_first)/len_mrv
+    else:
+        df_mrv_mean=None
+    df_market_value_20.at[0,s]=df_mrv_mean
+    df_market_value_20_original.at[0,s]=df_mrv_mean
+    g=1
+    for i in month_end_list_index[1:]:  
+        df_mrv_list_follow=filter(None,df_mrv_list[i+1-20:i+1])
+        len_mrv=len(df_mrv_list_follow)
+        if len_mrv!=0:
+            df_mrv_mean=sum(df_mrv_list_follow)/len_mrv
+        else:
+            df_mrv_mean=None
+        df_market_value_20.at[g,s]=df_mrv_mean
+        df_market_value_20_original.at[g,s]=df_mrv_mean
+        g=g+1
+ 
+df_market_value_20_proportion=df_market_value_20
+                                      #--------------df_market_value_20-----20日平均市值#
+for i in range(0,108):
+    df_market_value_20_list=df_market_value_20.iloc[i,:].fillna(0).values
+    df_market_value_20_sum=sum(df_market_value_20_list) 
+    for s in range(0,len(stocklist)):
+        df_market_value_20_proportion.at[i,stocklist[s]]=df_market_value_20_list[s]/df_market_value_20_sum   
+    df_market_value_20_cut=df_market_value_20_proportion.loc[:,new_stocklist]
+           #df_market_value_20_cut-----上市半年以上股票的20日市值加权比例#
+           
+print(df_market_value_20_original.head(10))
+print(df_market_value_20_proportion.head(10))
+print(df_market_value_20_cut.head(10))
+
+df_mkt_illiq=pd.DataFrame(index=range(0,108),columns=df_illiq.columns)
+for i in range(0,108):
+    for s in df_illiq.columns:
+        df_mkt_illiq.at[i,s]=df_illiq.at[i,s]*df_market_value_20_cut.at[i,s]
+
+df_mkt_illiq=df_mkt_illiq.fillna(0)
+
+mkt_illiq_list=[]
+for i in range(0,108):
+    mkt_illiq=sum(df_mkt_illiq.loc[i,:].values)
+    mkt_illiq_list.append(mkt_illiq)
+
+#----------------------------以下开始回归分析------------------------------#
+
+stock_industry=pro.stock_basic(exchange='',list_status='L', fields='symbol,industry,list_date')
+stock_industry=stock_industry.reset_index()
+print(stock_industry.tail())
+
+stock_numlist=[]
+for i in stocklist:
+    stock_num=i[:-3]
+    stock_numlist.append(stock_num)
+print(len(stock_numlist)) 
+print(len(stocklist)) 
+   
+for i in stock_industry.symbol.values:   
+    if i not in stock_numlist:
+        print(i)
+    else:
+        pass
+print(len(stock_industry.symbol.values))
+
+surplus1=stock_industry[stock_industry['symbol']==u'002949'].index
+surplus2=stock_industry[stock_industry['symbol']==u'300758'].index
+surplus3=stock_industry[stock_industry['symbol']==u'300761'].index
+surplus4=stock_industry[stock_industry['symbol']==u'600928'].index
+surplus5=stock_industry[stock_industry['symbol']==u'603956'].index
+stock_industry=stock_industry.drop([1389,2130,2133,2905,3564],axis=0)
+
+industrylist=pd.DataFrame(stock_industry.industry.values)
+industrylist=industrylist.T
+industrylist.columns=df_ret_20.columns
+                                 #industrylist展示股票与行业的对应                        
+df_ret_20=df_ret_20.append(industrylist)     #df_ret_20t
+df_ret_20=df_ret_20.reset_index()
+df_ret_20=df_ret_20.drop(['index'],axis=1)
+df_ret_20t=df_ret_20.T 
+print('df_ret_20t')
+print(df_ret_20t.head(10))
+
+for i in np.unique(stock_industry.industry.values):
+    c_list=[]
+    for s in df_ret_20t[108].values:
+        if s==i:
+            c=1
+        else:
+            c=0
+        c_list.append(c)
+    df_ret_20t[i]=c_list
+
+column_mrvt_list=[]
+for i in range(0,108):
+    column_mrvt=str('m')+str(i)
+    column_mrvt_list.append(column_mrvt)          #m0～m107 市值列名
+
+df_market_value_20_original=df_market_value_20_original.T
+df_market_value_20_original.columns=column_mrvt_list
+df_neutral=pd.merge(df_ret_20t,df_market_value_20_original,how='inner',on=df_ret_20t.index)
+df_neutral=df_neutral.drop(['key_0'],axis=1)
+df_neutral=df_neutral.rename(columns={108:'industry'})
+column_ret20_list=[]
+for i in range(0,108):
+    column_ret20=str('r')+str(i)
+    column_ret20_list.append(column_ret20)
+
+for i in range(0,108):
+    df_neutral=df_neutral.rename(columns={i:column_ret20_list[i]})
+
+
+df_neutral_copy=df_neutral
+#------------------------------中性化------------------------------#                                                
+df_factor_both=pd.DataFrame(index=range(0,108),columns=stocklist) 
+
+for i in range(0,108):
+    if i not in failure_neutral:
+        df_neutral_col_list=[i]
+        
+        for j in range(109,219):
+            df_neutral_col_list.append(j)
+            
+        df_neutral_col_list.append(i+219)
+        df_neutral_regress=df_neutral.iloc[:,df_neutral_col_list]    
+        
+        column_r=df_neutral_regress.columns[0] 
+        df_neutral_regress[column_r]=df_neutral_regress[column_r].fillna(999)
+        df_neutral_regress=df_neutral_regress.drop(list(df_neutral_regress[df_neutral_regress[column_r]==999].index),axis=0)
+        df_neutral_regress=df_neutral_regress.drop(list(df_neutral_regress[df_neutral_regress[column_r]==0].index),axis=0)    
+        
+        y=df_neutral_regress[column_r]
+        x=df_neutral_regress[df_neutral_regress.columns[1:]]
+        result=sm.OLS(y.astype(float),x.astype(float)).fit()  
+        for s in list(result.resid.index):
+            df_factor_both.at[i,stocklist[s]]=result.resid[s]
+    else:
+        pass
+
+#------------------------------以下根据108个月的顺序进行回归分析------------------------------#
+
+s=0
+i_list=[]
+df_tvalues=pd.DataFrame(index=range(0,108),columns=['big','small'])
+for i in range(0,108):     
+    df_neutral_col_list=[i]  
+    for j in range(109,219):
+        df_neutral_col_list.append(j)
+    df_neutral_col_list.append(i+219)
+    df_neutral_regress=df_neutral.iloc[:,df_neutral_col_list]    
+    
+    column_r=df_neutral_regress.columns[0] 
+    df_neutral_regress[column_r]=df_neutral_regress[column_r].fillna(999)
+    df_neutral_regress=df_neutral_regress.drop(list(df_neutral_regress[df_neutral_regress[column_r]==999].index),axis=0)
+    df_neutral_regress=df_neutral_regress.drop(list(df_neutral_regress[df_neutral_regress[column_r]==0].index),axis=0)    
+    
+    y=df_neutral_regress[column_r]
+    x=df_neutral_regress[df_neutral_regress.columns[1:]]
+    result=sm.OLS(y.astype(float),x.astype(float)).fit()
+    n=0
+    j=0
+    for z in result.tvalues.values:
+        if abs(z)>1.96:
+            n=n+1
+        else:
+            j=j+1
+    if n>j:
+        s=s+1
+        i_list.append(i)
+    else:
+        pass
+
+print(i_list)
+'''
+'''
+#-----------------------计算中性化的偏度------------------------#
+failure_neutral=[]
+for y in range(0,108):
+    y1=df_ret_20.loc[y,:].dropna().values
+    y2=df_factor_both.loc[y,:].dropna().values  
+    #sns.kdeplot(y1,shade=True)
+    #sns.kdeplot(y2,shade=True)
+    var1=0
+    var2=0
+    skew1=0
+    skew2=0
+    for i in y1:
+       var1=var1+i*i
+    std1=math.sqrt(var1/(len(y1)-1))
+    for i in y1:
+        skew1=skew1+(i/std1)**3
+    skew1=skew1/len(y1)  
+    for i in y2:
+       var2=var2+i*i
+    std2=math.sqrt(var2/(len(y2)-1))
+    for i in y2:
+        skew2=skew2+(i/std2)**3
+    skew2=skew2/len(y2)        
+    if abs(skew1)>abs(skew2):
+        pass
+    else:
+        failure_neutral.append(y)
+        
+print('failure_neutral')  
+print(failure_neutral)  
+
+#df_close_original=pd.read_csv('/Users/wb874/Desktop/df_close_original.csv')
+#df_close_original=df_close_original.drop(df_close_original.columns[0],axis=1)
+
+#--------------------------------此处开始计算胜率和收益率，仅需要df_factor_both----------------------------#
+
+
+retlist=[]
+profitlist=[]
+winratelist=[]
+for i in range(0,107):
+    factor_list=df_factor_both.loc[i,:].dropna().sort_values()
+    um_10percent=int(math.floor(len(factor_list)/30))
+    stock_to_buy=factor_list[0:um_10percent].index
+    stock_to_sell=factor_list[-1*um_10percent:].index   #此处尝试互换了
+    if i==0:
+        win=0
+        profit=0
+        buyprice_sum=0
+        for s in stock_to_buy:
+            the_month_index=range(14,month_end_list_index[i+1]+1)  #for the first month
+            month_trade_closes=df_close.loc[the_month_index,s].dropna()
+            
+            if len(month_trade_closes)==0:
+                pass
+            else:
+                sellday=list(month_trade_closes.index)[-1]
+                buyday=list(month_trade_closes.index)[0]
+                buyprice=df_close.at[buyday,s]
+                sellprice=df_close.at[sellday,s]               
+                if sellprice>buyprice:
+                    win=win+1  #对于这一只股票，sellprice>buyprice!!!
+                    pro=sellprice-buyprice
+                else:
+                    pass
+            profit=profit+pro
+            buyprice_sum=buyprice_sum+buyprice
+            
+        ret=profit/buyprice_sum
+        retlist.append(ret)
+        #print(profit)
+        winrate=float(win)/float(len(stock_to_buy))
+    else:
+        win=0
+        profit=0
+        buyprice_sum=0
+        for s in stock_to_buy:
+            the_month_index=range(month_end_list_index[i]+1,month_end_list_index[i+1]+1)
+            month_trade_closes=df_close.loc[the_month_index,s].dropna()
+            
+            if len(month_trade_closes)==0:
+                pass
+            else:
+                sellday=list(month_trade_closes.index)[-1]
+                buyday=list(month_trade_closes.index)[0]
+                buyprice=df_close.at[buyday,s]
+                sellprice=df_close.at[sellday,s]
+                if sellprice>buyprice:
+                    win=win+1
+                else:
+                    pass
+                pro=sellprice-buyprice
+            buyprice_sum=buyprice_sum+buyprice
+            profit=profit+pro
+            
+        ret=profit/buyprice_sum
+        #print(profit)
+        retlist.append(ret)
+        profitlist.append(profit)
+        winrate=float(win)/float(len(stock_to_buy))
+        
+    winratelist.append(winrate)
+print(sum(profitlist))
+prosumlist=[]
+prosum=0
+for i in profitlist:
+    prosum=prosum+i
+    prosumlist.append(prosum)
+    
+retlist_mul=[]
+mul=1000000
+for i in retlist:    
+    mul=mul*(1+i)
+    retlist_mul.append(mul)
+  
+y=retlist_mul 
+x=range(1,108)
+plt.figure(figsize=(8,4)) #创建绘图对象
+plt.plot(x,y,"b--",linewidth=1)
+plt.show()
+
+
+if i==1:
+    a=market_base_ret_list[0]       #-----------------此处需要market_base_ret_list来计算ret_20_market_base--------#
+    b=market_base_ret_list[month_end_list_index[i]]
+    if a==0:
+        pass
+    else:
+        ret_20_market_base=(b-a)/a
+else:
+    for i in range(2,109):
+        market_base_ret_list[month_end_list_index[i-1]+1]
+        market_base_ret_list[month_end_list_index[i]]
+    if a==0:
+        pass
+    else:
+        ret_20_market_base=(b-a)/a
+----------------------------------------------------------------------------- 
+#286:2475
+market_base_ret_list=pro.index_daily(ts_code='000907.CSI')  #中证800
+dfshift1=pd.DataFrame(market_base_ret_list.loc[276:2465,'close'].shift(1)) #264 前一天，265后一天,
+dfshift0=pd.DataFrame(market_base_ret_list.loc[276:2465,['trade_date','close']])
+dfshift1.columns=['close1']
+dfshift=pd.merge(dfshift0,dfshift1,how='inner',on=dfshift0.index)
+dfshift=dfshift.reset_index()
+dfshift=dfshift.drop(['index','key_0'],axis=1)
+dfshift['ret']=[None]*len(dfshift)
+mkt_close_list=dfshift.close.values
+mkt_close_list_sort=[] 
+for i in range(1,len(mkt_close_list)+1):
+    mkt_close_list_sort.append(mkt_close_list[-i])   
+mkt_trade_date_list=dfshift.trade_date.values
+mkt_trade_date_list_sort=[] 
+for i in range(1,len(mkt_trade_date_list)+1):
+    mkt_trade_date_list_sort.append(mkt_trade_date_list[-i]) 
+mkt_close1_list=dfshift.close1.values
+mkt_close1_list_sort=[] 
+for i in range(1,len(mkt_close1_list)+1):
+    mkt_close1_list_sort.append(mkt_close1_list[-i]) 
+dfshift['trade_date']=mkt_trade_date_list_sort
+dfshift['close']=mkt_close_list_sort
+dfshift['close1']=mkt_close1_list_sort
+for i in dfshift.index[0:-1]:
+    dfshift.at[i+1,'ret']=(dfshift.at[i,'close1']-dfshift.at[i,'close'])/dfshift.at[i,'close']
+
+
+#print(dfshift.head(40))
+mkt_ret_list=[]
+mkt_datelist=list(dfshift.trade_date.values) 
+for i in range(0,len(month_end_list_index)):
+    if i==0:
+        mkt_date=mkt_datelist[month_end_list_index[i]+1]
+        mkt_date=unicode(mkt_date)
+        mkt_date_ret=float(dfshift[dfshift['trade_date']==mkt_date]['close'].values)
+        mkt_date_ret20=float(dfshift[dfshift['trade_date']==u'20090105']['close'].values)
+        mkt_ret=(mkt_date_ret-mkt_date_ret20)/mkt_date_ret20
+        mkt_ret_list.append(mkt_ret)
+    else:        
+        mkt_date=mkt_datelist[month_end_list_index[i]+1]
+        mkt_date20=mkt_datelist[month_end_list_index[i-1]+1]
+        #print(mkt_date20)
+        #print(mkt_date)
+        mkt_date=unicode(mkt_date)
+        mkt_date20=unicode(mkt_date20)
+        mkt_date_ret=float(dfshift[dfshift['trade_date']==mkt_date]['close'].values)
+        mkt_date_ret20=float(dfshift[dfshift['trade_date']==mkt_date20]['close'].values)
+        mkt_ret=(mkt_date_ret-mkt_date_ret20)/mkt_date_ret20
+        mkt_ret_list.append(mkt_ret)
+'''
+#--------------此处开始计算本金以及两个收益率--------------#
+'''
+base=1000000
+baselist=[]
+profit_monthlist=[]
+for i in mkt_ret_list: 
+    profit_month=1000000*(1+i)-1000000
+    base=base+profit_month
+    baselist.append(base)
+    profit_monthlist.append(profit_month)
+    
+strategy=1000000    
+strategy_list=[]   
+profit_strategy_monthlist=[]    
+for i in retlist: 
+    profit_strategy_month=1000000*(1+i)-1000000
+    strategy=strategy+profit_strategy_month
+    strategy_list.append(strategy)
+    profit_strategy_monthlist.append(profit_strategy_month)
+    
+y1=baselist[:-1]
+y2=strategy_list
+x=range(1,108)
+plt.figure(figsize=(8,4)) #创建绘图对象
+plt.plot(x,y1,"b--",linewidth=1)
+plt.plot(x,y2,"r--",linewidth=1)
+plt.show()
+
+-----------------------------------------------------------------------------
+#Sortino比率计算
+retlist_annual=[]
+for i in retlist:
+    ret_annual=i*12
+    retlist_annual.append(ret_annual)
+retlist_annual=retlist_annual[0:]
+expected_ret=sum(retlist_annual)/float(len(retlist_annual))
+#得到预期收益率
+print(expected_ret)
+ret2=0
+ret_free=0.0309-----------------#平均1年期国债收益率
+exceed=0
+for i in retlist_annual:
+    if i<ret_free:
+        ret1=(i-ret_free)*(i-ret_free)   #平均1年期国债收益率，此时令MAR=ret_free
+        ret2=ret2+ret1
+        exceed=exceed+1
+    else:
+        pass
+print(len(retlist_annual)-exceed)
+standard_deviation=np.sqrt((ret2/(len(retlist_annual)-1)))
+
+print(standard_deviation)
+
+Sortino=(expected_ret-ret_free)/standard_deviation
+print(Sortino)
+'''
+
+#df_ret_20_var=pd.read_csv('/Users/wb874/Desktop/df_ret_20.csv')
+#df_ret_20_var=df_ret_20_var.drop(df_ret_20_var.columns[0],axis=1)
+'''
+ret_var_list=[]
+for i in range(0,108):
+    df_ret_20_var_dropna=pd.DataFrame(df_ret_20_var.loc[i,:].values).dropna().values
+    ret_var=np.var(df_ret_20_var_dropna)
+    ret_var_list.append(ret_var)
+'''
+'''
+y=ret_var_list
+x=range(0,108)
+plt.figure(figsize=(8,4)) #创建绘图对象
+plt.plot(x,y,"b--",linewidth=1)
+plt.show()
+
+base=1000000
+baselist=[]
+for i in retlist:
+    base=base*(1+i)
+    baselist.append(base)
+'''
+df_retcov=pd.DataFrame()
+df_retcov['ret_var_list']=ret_var_list[:-1]
+df_retcov['retlist']=retlist
+
+
+#print(len(mktilliq_month_original),len(retlist))
+
+df_mktilliq_ret=pd.DataFrame()
+df_mktilliq_ret['mktilliq']=mktilliq_month_original[:-1]
+df_mktilliq_ret['ret']=retlist[1:]
+
+x=df_retcov['ret_var_list']
+y=df_retcov['retlist']
+result=sm.OLS(y,x).fit()
+print(result.summary())
+
+
+#covvar_ret=np.array([ret_var_list[1:],retlist])
+#print(stats.pearsonr(a,b))
