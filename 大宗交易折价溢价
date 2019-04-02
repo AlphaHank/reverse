@@ -1,0 +1,386 @@
+#!/usr/bin/env python2
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Jan  6 01:03:20 2019
+
+@author: wb874
+"""
+
+import numpy as np
+from scipy import stats
+import matplotlib.pyplot as plt
+import pandas as pd
+import tushare as ts
+import statsmodels.api as sm
+import ffn
+import datetime
+import time
+import csv
+import os
+import chardet
+import datetime
+import pdb
+
+'''
+bt=pd.DataFrame(columns=[])
+for i in ['2017','2016','2015','2014','2013','2012','2011','2010']:
+    a=pd.read_excel('/Users/wb874/Desktop/block_trading.xlsx',sheetname=i,header=1)
+    bt=bt.append(a)
+bt.index=range(1,len(bt)+1)
+
+bt=bt.drop([u'收盘价(元)',u'占流通股比(%)',u'占总股本比(%)'],axis=1)
+bt=bt.drop([u'名称'],axis=1)
+
+
+bt.columns=['code','date','price','ratio','volume','amount','buyside','sellside']
+
+def jydy(val):
+    if val.find(u'交易单元')!=-1:
+        val=val[:-8]
+    else:
+        val=val
+    return val
+
+bt['buyside']=[jydy(i) for i in bt['buyside'].values]   #本列=[之内的函数遍历 for i in XXX]
+bt['sellside']=[jydy(i) for i in bt['sellside'].values]
+
+
+bt.buyside=bt.buyside.str.replace(u'有限责任公司','')
+bt.buyside=bt.buyside.str.replace(u'股份有限公司','')
+bt.buyside=bt.buyside.str.replace(u'有限公司','')
+
+bt.sellside=bt.sellside.str.replace(u'有限责任公司','')
+bt.sellside=bt.sellside.str.replace(u'股份有限公司','')
+bt.sellside=bt.sellside.str.replace(u'有限公司','')
+
+df=bt.groupby(['code','date','price','ratio','buyside','sellside']).sum()
+df.reset_index(inplace=True)  #把code放进列里面,然后就归并了相同交易
+
+df[u'交易日期']=pd.to_datetime(df['date']) #字符型日期转换成
+df[u'年份']=[i.year for i in df[u'交易日期']]
+
+
+#df[u'月份']=[i.month for i in df[u'交易日期']]
+
+#df_year=df[u'年份'].value_counts()
+#plt.figure(figsize=(8,6)) #生成空白画布
+#plt.bar(df_year.index,df_year.values,color='b') 
+
+
+def bankuai(val):
+    if val[0:2]=='60':
+        return 'shzb'
+    if val[0:3]=='000' or val[0:3]=='001':
+        return 'szzb'
+    if val[0:3]=='002':
+        return 'zxb'
+    if val[0:3]=='300':
+        return 'cyb'
+
+
+df['bk']=[bankuai(i) for i in df['code'].values]
+print(df.head(7))
+
+#df=df.drop([u'交易日期'],axis=1)
+
+x=df['bk'].value_counts().index
+y=df['bk'].value_counts().values
+plt.figure(figsize=(8,6))
+plt.bar(x,y,color='g')
+
+
+for a,b in zip(x,y):  #zip!!!!!
+    plt.text(a,b+200,b)
+    
+plt.show()
+
+
+y=df['bk'].value_counts().values
+labels=df['bk'].value_counts().index
+
+
+plt.figure(figsize=(6,6))
+plt.pie(y,labels=labels)  #labels!!!!!!=????
+plt.title('sectors')
+'''
+'''
+industry=pd.read_csv('/Users/wb874/Downloads/大宗交易相关数据/industry.csv',encoding='gbk',header=None)
+industry.columns=['code','in_code','in_name']     
+df_industry=pd.merge(df,industry,how='inner',on='code')
+#左右合并不用append，用merge; inner左右都有才保留，left左面有就保留,right右面有就保留
+'''
+
+
+'''
+y=df_industry['in_name'].value_counts().values
+x=df_industry['in_name'].value_counts().index
+in_namelist=[]
+for i in df_industry['in_name'].value_counts().index:
+    in_name=i.encode('utf-8')
+    in_namelist.append(in_name)
+
+plt.figure(figsize=(18,6))
+plt.bar(df_industry['in_name'].value_counts().index,y,color='b')
+plt.xlabel('sectors')
+plt.xticks(rotation=90)
+plt.ylabel('numbers')
+
+a_list=[]
+b_list=[]
+c_list=[]
+for i in [2017,2016,2015,2014,2013,2012,2011,2010]:
+    a=0
+    b=0
+    c=0
+    for j in df[df[u'年份']==i].ratio.values:
+        if j<0:
+            a=a+1
+        if j==0:
+            b=b+1
+        if j>0:
+            c=c+1
+            
+    m=float(a+b+c) #归一化
+    a=float(a)/m
+    b=float(b)/m
+    c=float(c)/m
+    a_list.append(a)   #zj的列表
+    b_list.append(b)   #pj的列表
+    c_list.append(c)   #yj的列表
+#年份-折溢价统计
+#为了保持每组高度相等，需要做除以每组之和的归一化步骤。
+x = ['2017','2016','2015','2014','2013','2012','2011','2010']   #写入年份
+y1 = np.array(a_list) #写入每一年zj
+y3 = np.array(b_list) #写入每一年pj
+y2 = np.array(c_list) #写入每一年yj
+plt.bar(x, y1,color='b',label='zj')
+plt.bar(x, y2,bottom=y1,color='r',label='yj')
+plt.bar(x, y3,bottom=y1+y2,color='g',label='pj')
+plt.legend(loc=[1, 0])
+plt.show()
+
+#总数折溢价统计
+plt.figure(figsize=(6,6))
+y=[sum(a_list),sum(b_list),sum(c_list)]
+labels=['zj','pj','yj']
+plt.pie(y,labels=labels)  
+plt.title('zyj_pie')
+
+def zyj(v):   #输入数据values,可以判断i正负
+    a=0
+    b=0
+    c=0
+    d=0
+    e=0
+    for i in v: 
+        if i>0:
+            if 0<i<=1:
+                a=a+1
+            if 1<i<=5:
+                b=b+1
+            if 5<i<=10:
+                c=c+1
+            if 10<i<=20:
+                d=d+1
+            if i>20:
+                e=e+1
+        if i==0:
+            pass
+        if i<0:
+            i=abs(i)
+            if 0<i<=1:
+                a=a+1
+            if 1<i<=5:
+                b=b+1
+            if 5<i<=10:
+                c=c+1
+            if 10<i<=20:
+                d=d+1
+            if i>20:
+                e=e+1
+    return[a,b,c,d,e]
+
+  
+df_zj=df[df['ratio']<0].ratio.values
+df_yj=df[df['ratio']>0].ratio.values  #在df_zj中提取数据，然后计算[a,b,c,d,e]
+zjfz=zyj(df_zj) 
+yjfz=zyj(df_yj)   
+
+x=['(0,1%]','(1%,5%]','(5%,10%]','(10%,20%]','>20']
+y1=zjfz
+y2=yjfz
+
+plt.figure(figsize=(8,6)) #折价分组
+plt.bar(x,y1,color='b')
+plt.figure(figsize=(8,6)) #溢价分组
+plt.bar(x,y2,color='b')
+
+delta_days=(pd.to_datetime(max(df_industry.date.values))-pd.to_datetime(min(df_industry.date.values))).days
+delta_days=float(delta_days)   #计算总共统计的日期长度
+print(delta_days)
+
+pinshu_list=[]
+average_delta_dayslist=[]
+for i in df_industry.in_name.value_counts().index: #取出行业名
+    df_inname=df_industry[df_industry['in_name']==i] 
+    block_trade_quantity=float(len(df_inname))    #本行业大宗交易数
+    stock_quantity=float(len(df_inname['code'].unique()))  #本行业交易公司数
+    pinshu=block_trade_quantity/stock_quantity
+    pinshu_list.append(pinshu)
+    average_delta_days=delta_days/pinshu  #日期/平均频数
+    average_delta_dayslist.append(average_delta_days)
+
+y=pinshu_list
+x=df_industry.in_name.value_counts().index  #以x中顺序取出的行业名正好一一对应
+z=average_delta_dayslist
+
+plt.figure(figsize=(15,5)) #频数
+plt.bar(x,y,color='b')
+print(df_industry.in_name.value_counts().index)
+plt.figure(figsize=(15,5)) #平均天数
+plt.plot(x,z,"b--",linewidth=1)
+'''
+'''
+num=df_industry.groupby(['code','in_code','in_name'])['code'].count()  #按什么分类，然后是属什么。
+num=pd.DataFrame(num)
+num.rename(columns={'code':'num'},inplace=True)    #inplace 覆盖，用{'original':'newname'}
+num.reset_index(inplace=True)  #把原来的index变成一个new columns
+print(num.head())
+'''
+
+#根据股票code分组，diff，然后写“间隔“列，然后写，
+#gap指一个公司两次交易的时间差，diff(1）本期与上一期比。
+'''
+df_industry['gap']=df_industry.groupby(df_industry['code'])['date'].diff(1)
+df_industry['gap']=df_industry['gap'].dt.days   
+#y1=df_industry[df_industry['ratio']<0][u'年份'].value_counts().sort_index().values
+     #value_counts计数---->sort_index排序----> 这种写法很好
+#y2=df_industry[df_industry['ratio']==0][u'年份'].value_counts().sort_index().values
+#y3=df_industry[df_industry['ratio']>0][u'年份'].value_counts().sort_index().values
+ret=pd.read_csv('/Users/wb874/Downloads/大宗交易相关数据/return.csv')
+
+'''
+'''
+def str_to_date(v):    
+    return datetime.datetime.strptime(v,'%d%b%Y')  #strptime(data,format(可以缩写）))
+
+#ret['date']=[str_to_date(i) for i in ret.date.values]
+
+print(ret.head())
+'''
+'''
+df_industry_ret=pd.merge(df_industry,ret,how='inner',on=['code','date'])
+#左右合并不用append，用merge; inner左右index都有才保留，left左面有就保留,right右面有就保留
+#只有左边index里有，才可以合并进去----left方法；outer--不管有没有，全要
+#merge就是先判断用那个Index, 然后在左右的index可以链接的地方，把这个index上的数据连起来 
+#这里的df_industry,ret, 在左面index的code,date全部一样的做一个index, 然后把右面一样的code,date下属的数据连在左面
+
+#------ret_copy=ret
+#-------dfiret=df_industry_ret
+
+newnamelist=[]   
+for i in range(1,61):
+    newname='T+'+str(i)
+    newnamelist.append(newname)  #得到新列的列名表
+
+length_dfret=len(df_industry_ret) 
+
+
+
+ret_last_list=[]
+for i in np.unique(df_industry_ret.code.values):
+    ret_ls=ret[ret['code']==i]
+    ret_last=list(ret_ls.index)[len(ret_ls)-1]
+    ret_last_list.append(ret_last)
+    
+print(ret_last_list)
+'''
+#stock_list=list(np.unique(df_industry_ret.code.values))
+'''
+ret_times=0 
+t=time.time()
+print(1,int(round(t * 1000)))
+ilist=range(0,60)
+for i in range(0,len(stock_list)): #得到0～～～number of stock-1
+    b=ret_last_list[i] 
+    c=ret_last_list[i+1]
+    ret_domain=ret.loc[b+1:c,:]
+    date_y_list=pd.to_datetime(df_industry_ret[df_industry_ret['code']==stock_list[i]].date.values) #得到格式正确的日期列表
+    for y in date_y_list:  #股票x下属的大宗交易日期           
+        index1=int(np.array(ret_domain[ret_domain['date']==y].index))        
+        index2=index1-60
+        numlist=range(index2,index1)
+        for i in ilist:      
+            df_industry_ret.at[ret_times,newnamelist[i]]=ret.at[numlist[i],'return']               
+        ret_times=ret_times+1 
+      
+t=time.time()
+print('out',int(round(t * 1000)))
+'''
+#print(df_industry_ret.head())
+#print(df_industry_ret.tail())
+#df_industry_ret.to_csv('/Users/wb874/Desktop/大宗交易60天收益率表.csv')
+'''
+df_industry_ret['negetive']=[None]*length_dfret
+df_industry_ret['equals']=[None]*length_dfret
+df_industry_ret['positive']=[None]*length_dfret
+
+
+df_industry_ret['ret_mean']=[None]*length_dfret
+t=time.time()
+print('out',int(round(t * 1000)))
+
+for n in range(0,len(df_industry_ret)):
+    return_tlist=[]
+    for i in range(0,60):
+        return_t=df_industry_ret.at[n,newnamelist[i]]
+        return_tlist.append(return_t)
+        
+    df_industry_ret.at[n,'ret_mean']=(sum(return_tlist))/(len(return_tlist))
+    equals=return_tlist.count(0)
+    bins=[-np.inf,0,np.inf]    
+    res=pd.Series(return_tlist).groupby(pd.cut(np.array(return_tlist),bins=bins)).count()
+    df_industry_ret.at[n,'negetive']=res.values[0]-equals
+    df_industry_ret.at[n,'equals']=equals
+    df_industry_ret.at[n,'positive']=res.values[1]
+
+t=time.time()
+print('out',int(round(t * 1000)))
+
+ret_calss=pd.DataFrame(index=[range(1,61)],columns=['negetive','eqauls','positive'])
+print(ret_calss.head(),ret_calss.tail())
+
+for i in range(0,60):
+   ret_daylist=list(df_industry_ret.loc[:,newnamelist[i]].values)
+   ret_day_eqauls=ret_daylist.count(0)
+   bins=[-np.inf,0,np.inf]    
+   res=pd.Series(ret_daylist).groupby(pd.cut(np.array(ret_daylist),bins=bins)).count()
+   ret_day_negetive=res.values[0]-ret_day_eqauls
+   ret_day_positive=res.values[1]
+   ret_calss.loc[i+1,ret_calss.columns]=[ret_day_negetive,ret_day_eqauls,ret_day_positive]
+
+ret_class=ret_calss
+
+ret_class['arv_negetive']=[None]*60
+ret_class['arv_equals']=[None]*60
+ret_class['arv_positive']=[None]*60
+
+'''
+'''
+for i in range(1,61):
+    ret_class.at[i,'arv_negetive']=float(ret_calss.at[i,'negetive'])/69168
+    ret_class.at[i,'arv_equals']=float(ret_calss.at[i,'equals'])/69168
+    ret_class.at[i,'arv_positive']=float(ret_calss.at[i,'positive'])/69168
+''' 
+'''
+可能的分类标签：
+'''
+
+
+
+
+
+
+
+
+  
