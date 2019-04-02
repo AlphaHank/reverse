@@ -1,0 +1,487 @@
+#!/usr/bin/env python2
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Jan  5 12:54:57 2019
+
+@author: wb874
+"""
+import numpy as np
+from scipy import stats
+import matplotlib.pyplot as plt
+import pandas as pd
+import tushare as ts
+import statsmodels.api as sm
+import ffn
+import datetime
+import time
+import os
+import pdb
+ts.set_token('your token here')
+pro = ts.pro_api('f811d210641eb4b9d45a6a794e84b271fa965faf04ff11be9c66de94')
+api = ts.pro_api('f811d210641eb4b9d45a6a794e84b271fa965faf04ff11be9c66de94')
+propstocklist=pd.read_csv('/Users/wb874/Desktop/propstock.csv')
+propstocklist=propstocklist.propstock.values
+propstocklist=list(propstocklist)         #---------被关注股票列表
+#print(len(propstocklist))
+#-----------------求交易日函数-----------------------#
+
+def get_datelist(a,b,c,startdate,enddate):
+    df1 = pro.daily_basic(ts_code=a, start_date=startdate,end_date=enddate, fields='ts_code,trade_date')
+    df2 = pro.daily_basic(ts_code=b, start_date=startdate,end_date=enddate, fields='ts_code,trade_date')
+    df3 = pro.daily_basic(ts_code=c, start_date=startdate,end_date=enddate, fields='ts_code,trade_date')
+    
+    if len(df1.trade_date.values)<len(df2.trade_date.values) or len(df1.trade_date.values)==len(df2.trade_date.values):
+       if len(df2.trade_date.values)<len(df3.trade_date.values) or len(df2.trade_date.values)==len(df3.trade_date.values):
+           datelist=df3.trade_date.values
+       else:
+           datelist=df2.trade_date.values
+    else:
+       if len(df1.trade_date.values)<len(df3.trade_date.values) or len(df1.trade_date.values)==len(df3.trade_date.values):
+           datelist=df3.trade_date.values
+       else:
+           datelist=df1.trade_date.values
+    
+    return datelist 
+
+  
+#分析是这里写入日期列表进行循环操作，改变日期的时候记得改函数！！
+def get_stockdata(datelist1,datelist2,Returnrate_free,date_transaction):
+    #print('本次交易日：'，datelist1)
+    #print('上次交易日：'，datelist2)
+#-------------------------------------
+    if datelist1==date_transaction:     #如果是第一天刚开始#  
+        
+        df = pro.daily_basic(ts_code=['000001.SZ','000002.SZ'], start_date=datelist1,end_date=datelist1, fields='ts_code,trade_date,close,circ_mv,pb')        
+        for j in propstocklist:
+            df1 = pro.daily_basic(ts_code=j, start_date=datelist1,end_date=datelist1, fields='ts_code,trade_date,close,circ_mv,pb')
+            df = pd.concat([df,df1],ignore_index=True)
+            time.sleep(0.32)
+        df.to_csv('/Users/wb874/Desktop/propstocklistdate1.csv')
+        
+                
+        propstocklistdate1=pd.read_csv('/Users/wb874/Desktop/propstocklistdate1.csv')#第一天数据写给csv1
+        propstocklistdate1=propstocklistdate1.ts_code.values #第一天数据股票列表
+        tobuy_yesterday=pd.read_csv('/Users/wb874/Desktop/propstocklistdate1.csv')
+        tobuy_yesterday.to_csv('/Users/wb874/Desktop/tobuy_yesterday.csv')
+        stockdata=pd.read_csv('/Users/wb874/Desktop/propstocklistdate1.csv')#对stockdata写入第一天数据        
+        print(datelist1,len(propstocklistdate1))  #给出第一天的交易股票列表           
+  #------------------------------------跳转
+  
+    else:          #如果不是第一天刚开始，那么让刚才存储好的data2来换成data1#
+        propstocklistdate1=pd.read_csv('/Users/wb874/Desktop/propstocklistdate2.csv')             
+        propstocklistdate1=propstocklistdate1.ts_code.values 
+        
+        stockdata=pd.read_csv('/Users/wb874/Desktop/propstocklistdate3.csv')   #把第二天的数据赋予第一天的数据，此时因为不是第一次，所以第二天的数据存在
+        stockdata.to_csv('/Users/wb874/Desktop/propstocklistdate1.csv') #？？？？？？把前一天的数据写入本日文档中      
+        print(datelist1,len(propstocklistdate1))  #给出第一天的交易股票列表
+             
+    #第一轮，到了这里  
+    df2 = pro.daily_basic(ts_code=['000001.SZ','000002.SZ'], start_date=datelist2,end_date=datelist2, fields='ts_code,trade_date,close,circ_mv,pb')
+    for j in propstocklist:
+        df3 = pro.daily_basic(ts_code=j, start_date=datelist2,end_date=datelist2, fields='ts_code,trade_date,close,circ_mv,pb')
+        df2 = pd.concat([df2,df3],ignore_index=True)
+        time.sleep(0.32)
+    df2.to_csv('/Users/wb874/Desktop/propstocklistdate2.csv')   #写入csv2
+                
+    propstocklistdate2=pd.read_csv('/Users/wb874/Desktop/propstocklistdate2.csv')  #读取csv2为propstocklistdate2
+    #读取第二天数据，写入csv2，csv2给stockdata1=>stockdata,然后上面用完，下面重写。
+    propstocklistdate2=propstocklistdate2.ts_code.values
+    
+    stockdata1=pd.read_csv('/Users/wb874/Desktop/propstocklistdate2.csv') #第三天数据stockdata1----第三天的数据
+    stockdata1.to_csv('/Users/wb874/Desktop/propstocklistdate3.csv')#写给csv3
+    
+    print(datelist2,len(propstocklistdate2)) #给出第二、三·····天的交易股票列表
+    #-------------------------------------------------------------------                             
+    stockdata=pd.read_csv('/Users/wb874/Desktop/propstocklistdate1.csv')
+    stockdata1=pd.read_csv('/Users/wb874/Desktop/propstocklistdate3.csv')
+    stockdata=stockdata.set_index('ts_code')
+    
+    stockdata1=stockdata1.set_index('ts_code')        #stockdate为本日数据,stockdata1为上一日数据  
+    stockdata=stockdata.drop('Unnamed: 0',axis=1)
+    stockdata1=stockdata1.drop('Unnamed: 0',axis=1)
+    list1=list(propstocklistdate1)
+    list2=list(propstocklistdate2)
+        
+    if len(list1)==len(list2):
+        pass
+    else:
+        for i in list1:      #去掉上一交易日没有交易的
+            if i not in list2:            
+                print(i)
+                propstocklistdate1.remove(i)  
+                stockdata=stockdata.drop(i) 
+                list1=list(stockdata.index.values)      
+            else:  #------------------------------上一交易日交易在这一交易日没有交易的
+                for i in list2:   
+                    if i not in list1:
+                        print(i)                     
+                        stockdata1=stockdata1.drop(i)    #-----删去本交易日没有的一项
+                        list2=list(stockdata1.index.values)                    
+                    else:
+                        pass
+                    
+    if len(stockdata.close.values)==len(stockdata1.close.values):
+       print('数据正常')
+    else: 
+       print('异常' )
+
+    for i in propstocklistdate1:    
+         returnrate=(stockdata.loc[i,'close']-stockdata1.loc[i,'close'])/stockdata1.loc[i,'close']#计算收益率        
+         stockdata.loc[i,'close']=returnrate                         #close换成return rate
+         stockdata.loc[i,'pb']=(stockdata.loc[i,'pb'])**-1   #bp
+         #--------这里处理股票名，换成文件名----------#
+         sttr = (i)
+         str_split = sttr.split('.')
+         stockcode='/Users/wb874/Desktop/STOCKDATA/'+str_split[0]+str_split[1]+'.csv'
+         
+         #注意！！！！为了追加数据而重写，这一步没有重复创建文件，而是得到了文件名
+         #这一步重新计算文件名的原因是，按照顺序得到文件名
+         #因为在循环中有一些股票因为当天没有交易而没有打开文件，防止数据错乱
+         #---------------------------------------#
+         stockfile_to_change=pd.read_csv(stockcode,'wb')      #打开某只股票csv文件
+         stockfile_to_change[datelist1,'ret']=returnrate      #写入股票收益率
+         stockfile_to_change[datelist1,'ret-Rf']=returnrate-Returnrate_free  #写入市场风险溢价
+               
+    #----------------------------以下开始计算因子——————————————————————————#        
+    circ_value=list(stockdata.circ_mv.values)    #市值
+    stockdata['circ_value']=circ_value           #新增加一列，circ_value=市值
+    bpgate=[stockdata['pb'].quantile(0.3),stockdata['pb'].quantile(0.7)]#分类
+    mvgate=stockdata['circ_mv'].quantile(0.5)                           #分类6种
+    
+    for i in propstocklistdate1:
+        
+        if stockdata.loc[i,'pb']<bpgate[0]:
+            stockdata.loc[i,'pb']='SBP'         
+            if stockdata.loc[i,'circ_mv']<mvgate:            
+                stockdata.loc[i,'circ_mv']='SMV'
+            else:            
+                stockdata.loc[i,'circ_mv']='LMV'
+                
+        elif stockdata.loc[i,'pb']<bpgate[1]:
+            stockdata.loc[i,'pb']='MBP'
+            
+            if stockdata.loc[i,'circ_mv']<mvgate:
+                stockdata.loc[i,'circ_mv']='SMV'            
+            else:           
+                stockdata.loc[i,'circ_mv']='LMV'
+                
+        else:
+            stockdata.loc[i,'pb']='LBP'         
+            if stockdata.loc[i,'circ_mv']<mvgate:            
+                stockdata.loc[i,'circ_mv']='SMV'
+            else:            
+                stockdata.loc[i,'circ_mv']='LMV'
+                
+    print(stockdata.head(5),stockdata.tail(5))
+            
+    return stockdata
+
+          
+#-----------计算因子用的函数-----------------#
+
+     
+def MVBP(data,pbclass,circ_mvclass):
+    select=data[(data.pb==pbclass) & (data.circ_mv==circ_mvclass)]
+    select.index=list(select.index)
+    market_value=[]
+    market_value=list(select.circ_value.values)
+    valuesum=sum(market_value)
+    stock_ret=list(select.close.values)
+    ret=[]
+    
+    for i in range(len(market_value)):
+        a=(market_value[i]*stock_ret[i])/valuesum
+        ret.append(a)
+        MV_BP=sum(ret)
+     
+    return MV_BP
+
+
+
+def ThreeFactors_regression(stockfilepath):  
+    
+    stockfiledate=pd.read_csv(stockfilepath)
+    TFregression=sm.OLS(stockfiledate.ret,sm.add_constant(stockfiledate.loc[:,1:4]))
+    TFresult=TFregression.fit()
+    alpha=TFresult.params['const']
+    return alpha#这一步得到所有alpha值
+
+    
+    
+#-----------------------------------------#以上定义了需要的函数#-----------------------------------------#
+
+
+
+
+
+
+
+   #-----------------------------------------#以下进行计算#-----------------------------------------#
+
+
+'''
+date_transaction='20180228'
+Returnrate_free=0.036  #    确定无风险收益率！！！！！！！！！1     
+measure_duration=50 #确定回测长度
+date_transactionlist=list(date_transaction)
+year_transaction=date_transactionlist[0]+date_transactionlist[1]+date_transactionlist[2]+date_transactionlist[3]
+
+if date_transactionlist[4]!='0':
+   month_transaction=date_transactionlist[4]+date_transactionlist[5]
+else:
+   month_transaction=date_transactionlist[5]   
+if date_transactionlist[6]!='0':
+   day_transaction=date_transactionlist[6]+date_transactionlist[7]
+else:
+   day_transaction=date_transactionlist[7]
+    
+date_measure=(datetime.date(int(year_transaction),int(month_transaction),int(day_transaction))-datetime.timedelta(days=measure_duration)).strftime("%Y%m%d") #确定调仓日
+
+datelist=get_datelist('600007.SH','600067.SH','600340.SH',date_measure,date_transaction) #用三个股票验证交易日，然后两个参数确定交易日日期。
+   
+MVfactorlist=[]
+BPfactorlist=[]
+datelist_factors=[]
+retlist_stock=[]
+
+#以下模块用来建立与股票数相等多的csv文件，文件index为交易日期，columns为ret,ret-Rf,MVF, BPF#
+   #----------------------------------------------------------------#
+propstocklist=pd.read_csv('/Users/wb874/Desktop/propstock.csv')
+propstocklist=propstocklist.propstock.values
+propstocklist=pd.Series(propstocklist).dropna()
+propstocklist.dropna()
+
+stockcodefile=[]
+for i in propstocklist:
+    sttr = (i)
+    str_split = sttr.split('.')
+    stockcode='/Users/wb874/Desktop/STOCKDATA/'+str_split[0]+str_split[1]+'.csv'
+    stockcodefile.append(stockcode)  #在这里得到股票文件名列表！！！！！！！！！！！！！！！！！！！！！！！1
+
+for i in stockcodefile:
+    file = open(i,'w')              #在这里创建新文件
+    file.close() 
+    data=pd.DataFrame(index=datelist,columns=['ret','ret-Rf','MVF','BPF'])  #创建规范数据
+    data.to_csv(i)    
+print('文件创立完毕') 
+                #把创建的规范数据写入刚刚创建的新文件，用来读取
+pdb.set_trace()  #######
+   #----------------------------------------------------------------#
+   #--------------以下模块开始计算三因子数值--------------#   
+''' 
+
+trytry=pd.read_csv('/Users/wb874/Desktop/STOCKDATA/600052SH.csv')
+
+
+
+
+'''   
+   
+   
+   
+for i in range(len(datelist)-1):
+    datelist1=datelist[i]
+    datelist2=datelist[i+1]
+    print(datelist1,datelist2)
+
+    stockdata=get_stockdata(datelist1,datelist2,Returnrate_free,date_transaction)
+
+    SS=MVBP(stockdata,'SBP','SMV')  
+    SL=MVBP(stockdata,'SBP','LMV') 
+    MS=MVBP(stockdata,'MBP','SMV') 
+    ML=MVBP(stockdata,'MBP','LMV') 
+    LS=MVBP(stockdata,'LBP','SMV') 
+    LL=MVBP(stockdata,'LBP','LMV')      
+    MVfactor=(SS+MS+LS)/3-(SL+ML+LL)/3
+    BPfactor=(LS+LL)/2-(SS+SL)/2
+    MVfactorlist.append(MVfactor) 
+    BPfactorlist.append(BPfactor) 
+    ret=stockdata.close
+    datelist_factors.append(datelist1) 
+    #retlist_stock.append(ret)
+    print(datelist1,MVfactor,BPfactor)
+
+    #--------------以下模块向各个股票文件内写入三因子数值--------------# 
+for i in stockcodefile:    
+    stockfile_change_factors=pd.read_csv(i,'wb')            #打开某只股票csv文件
+    stockfile_change_factors[datelist1,'MVF']=MVfactor      #写入市场规模因子
+    stockfile_change_factors[datelist1,'BPF']=BPfactor      #写入账面市值比因子 
+ #这一步因为三因子值对于所有股票来说在同一天都是一样的，所以可以直接应用计算出来的股票文件名表
+
+ #自此，所有的收益率，三因子值等等都被输入到以stockcodefile为路径的一批文件当中，以下模块进行回归分析#
+ 
+alphalist=[]
+alphadict={}
+alphalist_negative=[]
+
+for i in stockcodefile:
+    alpha=ThreeFactors_regression(i)
+    alphalist.append(alpha)   #得到alpha列表
+    sttr = (i)
+    str_split = sttr.split('/')
+    sttr=str_split[5]
+    str_split = sttr.split('.')  
+    sttr=str_split[0]
+    str_split = sttr.split('S') 
+    stockcode=str_split[0]+'.S'+str_split[1]  #得到股票代码
+    alphadict[alpha]=stockcode    #得到alpha值：股票代码的字典 
+
+#以下模块对回归分析得到对alpha因子进行选择#  
+alphalist.sort()    #对alpha列表排序
+for j in alphalist: 
+    if j<0:
+       alphalist_negative.append(j)    #选取为负数的alpha
+    else:
+        pass
+if len(alphalist_negative)>5:
+    alphalist_negative.sort()
+    stock_chosen=alphalist_negative[0:6]  #选取负数alpha中最小的五个
+else:
+    stock_chosen=alphalist_negative
+    print(len(alphalist_negative))        #得到Alpha备选名单
+    
+stock_to_buylist=[]
+
+for i in stock_chosen:
+    stock_to_buylist.append(i)
+    
+print(stock_to_buylist)  
+
+file = open('stock_to_buy.csv','w')
+file.close() 
+
+df = pro.daily_basic(ts_code=['000001.SZ','000002.SZ'], start_date=datelist[1],end_date=datelist[1], fields='ts_code,trade_date,close')        
+for j in stock_to_buylist:  
+    df1 = pro.daily_basic(ts_code=j, start_date=datelist[1],end_date=datelist[1], fields='ts_code,trade_date,close')
+    df = pd.concat([df,df1],ignore_index=True)
+    time.sleep(0.32)
+df.to_csv('stock_to_buy.csv') #这个文件包括了备选股票的文件，备选股票在调仓日前一天的收盘价
+
+                    #--------------以下是交易模块----------------#
+                    #--------------以下是交易模块----------------#
+                    #--------------以下是交易模块----------------#
+                    #--------------以下是交易模块----------------#
+
+'''
+'''
+'''
+'''
+'''
+'''
+class account(object):          
+      def __init__(self,stablecash,cash,deal_action): 
+            self.stablecash=stablecash        
+            self.cash=cash
+            self.deal_action=deal_action
+            
+account=account(1000000,1000000,[])
+
+
+#---------------------------------------------------------------#  
+def order_sell(i,number_to_sell):     #输入卖掉的股票代码，卖掉的股票数量
+    
+    a=data_yesterday.loc[i,'close']*number_to_sell #求出来卖掉股票的价格
+    account.cash=account.cash+a                  #卖出股票获得的现金加入账户现金内
+    stock_have_buy=stock_have_buy.drop(i) #在持仓里面去掉这一股票的数据           
+    account.deal_action.append(-1)
+    
+#---------------------------------------------------------------#    
+def order_buy(i,number_to_buy):        #输入买入的股票代码，买入的股票数量
+    
+    a=(data_yesterday.loc[i,'close'])*number_to_buy #求出来买入股票的价格
+    account.cash=account.cash-a                  #账户扣除买入股票的现金
+    account.deal_action.append(1)
+    
+    if i in stock_have_buy.index:                      #如果这一股票是已经持有过的
+       newprice=data_yesterday.loc[i,'close']         #根据上一日收盘价设定新价格
+       newnumber=stock_have_buy.loc[i,'number']+number_to_buy  #根据已经持有的数量+新买的数量
+       newvalue=newnumber*newprice               #根据新价格与新数量定新的价值
+       stock_have_buy.loc(i,'close')=newprice    #修改表格
+       stock_have_buy.loc(i,'numberlist')=newnumber  #修改表格
+       stock_have_buy.loc(i,'valuelist')=newvalue    #修改表格
+    else:                                        #如果买入的股票不是已经持有的股票
+       newprice=data_yesterday.loc[i,'close']         #根据上一日收盘价设定新价格
+       newnumber=number_to_buy                   #根据输入的参数设定买入的数量
+       newvalue=newprice*newnumber               #根据新价格与新数量定新的价值
+       stock_have_buy.loc[i]=[i,newprice,newnumber,newvalue]  #在持仓中加入这一股票信息
+  
+    
+#---------------------------------------------------------------#   
+
+stockdata=pd.read_csv('/Users/wb874/Desktop/propstocklistdate1.csv')
+stockdata=stockdata.set_index('ts_code')
+stockdata=stockdata.drop('Unnamed: 0',axis=1)
+stock_to_buy=stockdata.iloc[0:9]
+
+#print(len(stock_to_buy.index))
+
+stock_to_buy1=pd.DataFrame[np.array(len(stock_to_buy.index),len(stock_to_buy.index),'20180201',12.33,0.1212,4444444],index='600001.SH')
+df = pd.concat([stock_to_buy,stock_to_buy1],ignore_index=True)
+print(df)
+#stock_have_buy=stockdata.iloc[4:13]
+#data_yesterday=stockdata
+#stock_to_buy=
+  #整体的构造
+
+#对于一下构造，我需要确定stock_to_buy，和sell and buy
+
+datalist=stock_to_buy.loc['600007.SH','trade_date']
+
+if account.cash>0:
+    if datalist=='20180201': #第一天，持仓还没有数据，因此持仓数据用第一天买入数据复制而来
+       accountvalue=account.cash     #最开始，总资产=现金
+       stock_have_buy=read_csv(stock_to_buy.to_csv('/Users/wb874/Desktop/stock_to_buy.csv'))
+       sumprice=sum(stock_have_buy.close.values)   #求股票单价之和
+       number=int(account.cash/sumprice)           #求每个股票买多少股
+       numberlist=[]           
+       valuelist=[]
+       for i in stock_to_buy.index:                #对于在买入列表中的股票
+           numberlist.append(number)               #重复股票个数这么多次
+           value_each=number*stock_to_buy.loc[i,'close']
+           valuelist.append(value_each)
+       stock_have_buy=pd.concat([stock_have_buy, pd.DataFrame(columns=['numberlist','valuelist'])],sort=False) 
+       account.cash=account.cash-sum(valuelist) 
+       
+    else:                 #除第一天之外      
+      for i in stock_have_buy.index:                     #如果在持仓列表但不在买入列表
+          if i not in stock_to_buy.index: 
+              number=stock_have_buy.loc[i,'number']      
+              order_sell(i,number)                       #平仓，cash增加
+          else:                                          #在持仓列表，同时也在买入列表里
+              sumprice=sum(stock_to_buy.close.values)    
+              number=int(account.cash/sumprice)          #计算应该持仓多少
+              if number>stock_have_buy.loc[i,'number']：  #应该补仓
+                 increase=number-stock_have_buy.loc[i,'number']
+                 order_buy(i,increase)
+              else:
+                 decrease=stock_have_buy.loc[i,'number']-number #应该减仓
+                 order_sell(i,decrease)
+             
+else:
+    print('现金亏空:'，account.cash)  
+    account.cash=0
+
+                  
+if account.cash>0:                 
+     for i in stock_to_buy.index:                        #如果在买入列表但不在持仓列表
+         sumprice=sum(stock_to_buy.close.values)    
+         number=int(account.cash/sumprice) 
+         order_buy(i,number)                             #建立仓位
+else:
+    print('现金亏空:'，account.cash)  
+    account.cash=0             
+              
+accountvalue=account.cash+sum(stock_have_buy.valuelist.values)  #总资产=剩下的现金+股票价值            
+'''
+
+
+
+
+    
+ 
+ 
+
+
+
+
+
