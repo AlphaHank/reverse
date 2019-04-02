@@ -1,0 +1,164 @@
+#!/usr/bin/env python2
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Jan  6 17:55:42 2019
+
+@author: wb874
+"""
+
+import pandas as pd
+import numpy as np
+
+'''
+求回归对时候，需要ref,ref-Rf,MVfactor,BPfactor
+然后对for i in porpstocklist---也就是所有备选股票执行回归
+
+#model=sm.OLS(ref,sm.add_constant([ref,'MVfactor','BPfactor'])).fit()
+#result=model.summary----获得a
+
+#sort all a, tkat the min 10, then get the stock_to_buy
+
+设定调仓日，从XXX天开始，进行到XXX天，每隔10天进行运算，time=()----里面是每隔十天到数据
+从调仓日向前计算60天，每一天的数据，对个股
+
+如果采取对数价格，需要改一下
+'''
+#---------------------------------------------------------------# 
+
+'''
+class account(object):          
+      def __init__(self,stablecash,cash,deal_action): 
+            self.stablecash=stablecash        
+            self.cash=cash
+            self.deal_action=deal_action
+            
+account=account(1000000,1000000,[])
+
+
+#---------------------------------------------------------------#  
+def order_sell(i,number_to_sell):     #输入卖掉的股票代码，卖掉的股票数量
+    
+    a=data_yesterday.loc[i,'close']*number_to_sell #求出来卖掉股票的价格
+    account.cash=account.cash+a                  #卖出股票获得的现金加入账户现金内
+    stock_have_buy=stock_have_buy.drop(i) #在持仓里面去掉这一股票的数据           
+    account.deal_action.append(-1)
+    
+#---------------------------------------------------------------#    
+def order_buy(i,number_to_buy):        #输入买入的股票代码，买入的股票数量
+    
+    a=(data_yesterday.loc[i,'close'])*number_to_buy #求出来买入股票的价格
+    account.cash=account.cash-a                  #账户扣除买入股票的现金
+    account.deal_action.append(1)
+    
+    if i in stock_have_buy.index:                      #如果这一股票是已经持有过的
+       newprice=data_yesterday.loc[i,'close']         #根据上一日收盘价设定新价格
+       newnumber=stock_have_buy.loc[i,'number']+number_to_buy  #根据已经持有的数量+新买的数量
+       newvalue=newnumber*newprice               #根据新价格与新数量定新的价值
+       stock_have_buy.loc(i,'close')=newprice    #修改表格
+       stock_have_buy.loc(i,'numberlist')=newnumber  #修改表格
+       stock_have_buy.loc(i,'valuelist')=newvalue    #修改表格
+    else:                                        #如果买入的股票不是已经持有的股票
+       newprice=data_yesterday.loc[i,'close']         #根据上一日收盘价设定新价格
+       newnumber=number_to_buy                   #根据输入的参数设定买入的数量
+       newvalue=newprice*newnumber               #根据新价格与新数量定新的价值
+       ??stock_have_buy.loc[i]=[i,newprice,newnumber,newvalue]  #在持仓中加入这一股票信息
+'''  
+    
+#---------------------------------------------------------------#   
+
+stockdata=pd.read_csv('/Users/wb874/Desktop/propstocklistdate1.csv')
+stockdata=stockdata.set_index('ts_code')
+stockdata=stockdata.drop('Unnamed: 0',axis=1)
+stock_to_buy=stockdata.iloc[0:9]
+
+#print(len(stock_to_buy.index))
+
+stock_to_buy1=pd.DataFrame[np.array(len(stock_to_buy.index),len(stock_to_buy.index),'20180201',12.33,0.1212,4444444],index='600001.SH')
+df = pd.concat([stock_to_buy,stock_to_buy1],ignore_index=True)
+print(df)
+#stock_have_buy=stockdata.iloc[4:13]
+#data_yesterday=stockdata
+#stock_to_buy=
+  #整体的构造
+'''
+#对于一下构造，我需要确定stock_to_buy，和sell and buy
+
+datalist=stock_to_buy.loc['600007.SH','trade_date']
+
+if account.cash>0:
+    if datalist=='20180201': #第一天，持仓还没有数据，因此持仓数据用第一天买入数据复制而来
+       accountvalue=account.cash     #最开始，总资产=现金
+       stock_have_buy=read_csv(stock_to_buy.to_csv('/Users/wb874/Desktop/stock_to_buy.csv'))
+       sumprice=sum(stock_have_buy.close.values)   #求股票单价之和
+       number=int(account.cash/sumprice)           #求每个股票买多少股
+       numberlist=[]           
+       valuelist=[]
+       for i in stock_to_buy.index:                #对于在买入列表中的股票
+           numberlist.append(number)               #重复股票个数这么多次
+           value_each=number*stock_to_buy.loc[i,'close']
+           valuelist.append(value_each)
+       stock_have_buy=pd.concat([stock_have_buy, pd.DataFrame(columns=['numberlist','valuelist'])],sort=False) 
+       account.cash=account.cash-sum(valuelist) 
+       
+    else:                 #除第一天之外      
+      for i in stock_have_buy.index:                     #如果在持仓列表但不在买入列表
+          if i not in stock_to_buy.index: 
+              number=stock_have_buy.loc[i,'number']      
+              order_sell(i,number)                       #平仓，cash增加
+          else:                                          #在持仓列表，同时也在买入列表里
+              sumprice=sum(stock_to_buy.close.values)    
+              number=int(account.cash/sumprice)          #计算应该持仓多少
+              if number>stock_have_buy.loc[i,'number']：  #应该补仓
+                 increase=number-stock_have_buy.loc[i,'number']
+                 order_buy(i,increase)
+              else:
+                 decrease=stock_have_buy.loc[i,'number']-number #应该减仓
+                 order_sell(i,decrease)
+             
+else:
+    print('现金亏空:'，account.cash)  
+    account.cash=0
+
+                  
+if account.cash>0:                 
+     for i in stock_to_buy.index:                        #如果在买入列表但不在持仓列表
+         sumprice=sum(stock_to_buy.close.values)    
+         number=int(account.cash/sumprice) 
+         order_buy(i,number)                             #建立仓位
+else:
+    print('现金亏空:'，account.cash)  
+    account.cash=0             
+              
+accountvalue=account.cash+sum(stock_have_buy.valuelist.values)  #总资产=剩下的现金+股票价值            
+'''
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
